@@ -2,38 +2,86 @@ name: Fill History (Daily Auto + Manual Batch)
 
 on:
   schedule:
-- cron: '0 20 * * *' # 每天 UTC 20:00（北京时间 4:00）
+    - cron: '0 12 * * *'  # 修正为 UTC 12:00 = 北京时间 20:00 自动运行
   workflow_dispatch:
     inputs:
       start_date:
-description: '开始日期 (YYYY-MM-DD)'
-要求：属实
-default: '2025-04-23'
+        description: '开始日期 (YYYY-MM-DD)'
+        required: true
+        default: '2025-04-23'
       end_date:
-description: '结束日期 (YYYY-MM-DD) - 留空则默认为今天'
-要求：假
-默认：'
+        description: '结束日期 (YYYY-MM-DD) - 留空则默认为今天'
+        required: false
+        default: ''
       daily_commits:
         description: '每天提交次数 (用于历史填充)'
-要求：属实
-default: '12'
+        required: true
+        default: '12'
 
 jobs:
   fill:
-运行：ubuntu-最新
+    runs-on: ubuntu-latest
     permissions:
-内容：写作
+      contents: write
     steps:
--用途：actions/checkout@v4
+      - uses: actions/checkout@v4
 
--名称：配置Git
-运行：|
-git config --global user.email "37774969@qq.com" # 替换为你的 GitHub 验证邮箱
-git config --global user.name "Lee8309" # 替换为你的 GitHub 用户名
+      - name: Configure Git
+        run: |
+          git config --global user.email "37774969@qq.com"
+          git config --global user.name "Lee8309"
 
-- name: Generate commits
+      - name: Generate commits
         env:
-START_DATE: ${{ github.event.inputs.start_date }}
+          START_DATE: ${{ github.event.inputs.start_date }}
+          END_DATE: ${{ github.event.inputs.end_date }}
+          DAILY_COMMITS: ${{ github.event.inputs.daily_commits }}
+        run: |
+          # 生成随机时间戳函数 (模拟 9:00-15:00 的工作时间)
+          random_time() {
+            echo $(shuf -i 32400-54000 -n 1) # 秒数范围：9*3600=32400 到 15*3600=54000
+          }
+
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            # 定时触发：生成今天提交
+            TODAY=$(date +%Y-%m-%d)
+            COMMITS_PER_DAY=12
+            echo "Daily run: generating $COMMITS_PER_DAY commits for $TODAY"
+            for i in $(seq 1 $COMMITS_PER_DAY); do
+              # 使用随机时间
+              SEC=$(random_time)
+              export GIT_AUTHOR_DATE="$TODAY $(date -d @$SEC +%H:%M:%S)"
+              export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
+              git commit --allow-empty -m "daily fill #$i on $TODAY"
+            done
+          else
+            # 手动触发：生成历史提交
+            if [ -z "$END_DATE" ]; then
+              END_DATE=$(date +%Y-%m-%d)
+            fi
+            current_date="$START_DATE"
+            
+            # 使用 --date 参数确保兼容性
+            while [ "$current_date" != "$END_DATE" ]; do
+              echo "Generating $DAILY_COMMITS commits for $current_date"
+              for i in $(seq 1 $DAILY_COMMITS); do
+                SEC=$(random_time)
+                export GIT_AUTHOR_DATE="$current_date $(date -d @$SEC +%H:%M:%S)"
+                export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
+                git commit --allow-empty -m "chore: sync #$i on $current_date"
+              done
+              # 关键修复：使用 --date 进行日期加一天
+              current_date=$(date --date="$current_date + 1 day" +%Y-%m-%d)
+            done
+          fi
+
+      - name: Push commits
+        run: |
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            git push origin HEAD
+          else
+            git push --force origin HEAD
+          fi
 END_DATE: ${{ github.event.inputs.end_date }}
 DAILY_COMMITS: ${{ github.event.inputs.daily_commits }}
 运行：|
