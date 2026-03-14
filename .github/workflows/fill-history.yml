@@ -82,38 +82,3 @@ jobs:
           else
             git push --force origin HEAD
           fi
-END_DATE: ${{ github.event.inputs.end_date }}
-DAILY_COMMITS: ${{ github.event.inputs.daily_commits }}
-运行：|
-if [ "${{ github.event_name }}" == "schedule" ]; then
-            # 定时触发：生成今天提交
-TODAY=$(date +%Y-%m-%d)
-            COMMITS_PER_DAY=12
-echo "Daily run: generating $COMMITS_PER_DAY commits for $TODAY"
-for i in $(seq 1 $COMMITS_PER_DAY); do
-git commit --allow-empty -m "daily fill #$i on $TODAY"
-完成
-其他的
-            # 手动触发：生成历史提交
-if [ -z "$END_DATE" ]; then
-END_DATE=$(date +%Y-%m-%d)
-fi（这个缩写没有明确的中文翻译，
-current_date="$START_DATE"
-while [ "$current_date" != "$END_DATE" ]; do
-echo "Generating $DAILY_COMMITS commits for $current_date"
-for i in $(seq 1 $DAILY_COMMITS); do
-export GIT_AUTHOR_DATE="$current_date 12:00:00"
-export GIT_COMMITTER_DATE="$current_date 12:00:00"
-git commit --allow-empty -m "chore: sync #$i on $current_date"
-完成
-current_date=$(date -d "$current_date + 1 day" +%Y-%m-%d)
-完成
-fi（这个缩写没有明确的中文翻译，
-
-- name: Push commits
-运行：|
-if [ "${{ github.event_name }}" == "schedule" ]; then
-git push origin HEAD # 定时任务：普通推送
-其他的
-git push --force origin HEAD # 手动任务：强制推送（覆盖历史）
-fi（这个缩写没有明确的中文翻译，
